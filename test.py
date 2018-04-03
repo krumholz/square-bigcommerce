@@ -4,6 +4,8 @@ import requests
 import pandas
 import credentials
 import numpy
+import smtplib
+from datetime import datetime
 
 
 def get_square_items(url='', creds=credentials):
@@ -44,7 +46,10 @@ def get_square_quantity(url='', creds=credentials):
 	for d in data:
 		temp = []
 		temp.append(d['variation_id'])
-		temp.append(d['quantity_on_hand'])
+		if isinstance(d['quantity_on_hand'], int):
+			temp.append(d['quantity_on_hand'])
+		else:
+			temp.append(0)
 		q.append(temp)
 
 	if r.headers.get('Link') is not None:
@@ -95,13 +100,31 @@ b = []
 square_items = get_square_items()
 square_quantity = get_square_quantity()
 bigcommerce_inventory = get_bigcommerce_inventory()
-df1 = pandas.DataFrame(square_items, columns=['ID', 'Name'])
-df2 = pandas.DataFrame(square_quantity, columns=['ID', 'Square Quantity'])
-df3 = pandas.DataFrame(bigcommerce_inventory, columns=['Name', 'BigCommerce Quantity'])
-df_square_combine = pandas.merge(df1, df2, on='ID', how='outer')
-df_square_bigcommerce = pandas.merge(df_square_combine, df3, on='Name', how='outer')
-df_diff = numpy.where(df_square_bigcommerce['Square Quantity'] != df_square_bigcommerce['BigCommerce Quantity'], df_square_bigcommerce['Name'], '')
+df1 = pandas.DataFrame(square_items, columns=['iD', 'name'])
+df2 = pandas.DataFrame(square_quantity, columns=['iD', 'squareQuantity'])
+df3 = pandas.DataFrame(bigcommerce_inventory, columns=['name', 'bigCommerceQuantity'])
+df_square_combine = pandas.merge(df1, df2, on='iD', how='outer')
+df_square_bigcommerce = pandas.merge(df_square_combine, df3, on='name', how='outer')
+np_diff = numpy.where(df_square_bigcommerce['squareQuantity'] != df_square_bigcommerce['bigCommerceQuantity'], df_square_bigcommerce['name'], '')
+df_diff = pandas.DataFrame(np_diff, columns=['name'])
+df_merged = pandas.merge(df_diff, df_square_bigcommerce, on='name', how='inner')
 
-for dif in df_diff:
-	if dif != '':
-		print(dif)
+difference = ''
+for index, row in df_merged.iterrows():
+	difference = row[1] + ', ' + row[0] + ', ' + str(row[2]) + ', ' + str(row[3]) + '\n' + difference
+print(difference)
+
+today = datetime.now()
+today = today.strftime("%B %d, %Y %I:%M%p - %A")
+message = 'Subject: Inventory Results (' + today + ')\nData...\n' + difference
+message = message.encode("utf8")
+email_from = credentials.email['email']
+email_to = 'nick.krumholz@gmail.com'
+email_pass = credentials.email['password']
+
+smtpObj = smtplib.SMTP('smtp.gmail.com', 587)
+smtpObj.ehlo()
+smtpObj.starttls()
+smtpObj.login(email_from, email_pass)
+smtpObj.sendmail(email_from, email_to, message)
+smtpObj.quit()
