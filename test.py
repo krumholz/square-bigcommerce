@@ -17,12 +17,10 @@ logging.debug('Start of program')
 def get_square_items(url='', creds=credentials):
 	square_location = credentials.square['store']
 	square_bearer_token = credentials.square['bearer_token']
-
 	if url == '':
 		url = 'https://connect.squareup.com/v1/' + square_location + '/items'
 
 	r = requests.get(url, headers={'Authorization': 'Bearer ' + square_bearer_token, 'Accept': 'application/json'})
-
 	data = r.json()
 	for d in data:
 		temp = []
@@ -44,19 +42,16 @@ def get_square_items(url='', creds=credentials):
 		next_page = next_page[1:].split('>')
 		next_page = next_page[0]
 		get_square_items(url=next_page)
-
 	return i
 
 
 def get_square_quantity(url='', creds=credentials):
 	square_location = credentials.square['store']
 	square_bearer_token = credentials.square['bearer_token']
-
 	if url == '':
 		url = 'https://connect.squareup.com/v1/' + square_location + '/inventory'
 
 	r = requests.get(url, headers={'Authorization': 'Bearer ' + square_bearer_token, 'Accept': 'application/json'})
-
 	data = r.json()
 	for d in data:
 		temp = []
@@ -72,24 +67,20 @@ def get_square_quantity(url='', creds=credentials):
 		next_page = next_page[1:].split('>')
 		next_page = next_page[0]
 		get_square_quantity(url=next_page)
-
 	return q
 
 
 def get_bigcommerce_inventory(next_page='', creds=credentials):
-
 	headers = {
 		'X-Auth-Client': credentials.bigcommerce['client_id'],
 		'X-Auth-Token': credentials.bigcommerce['access_token'],
 		'Accept': 'application/json',
 		'Content-Type': 'application/json'
 	}
-
 	if next_page == '':
 		paginate = 1
 	else:
 		paginate = next_page
-
 	url = 'https://api.bigcommerce.com/stores/' + credentials.bigcommerce['store'] + '/v3/catalog/products?include_fields=name,inventory_level&page=' + str(paginate) + '&limit=250'
 
 	r = requests.get(url, headers=headers)
@@ -99,13 +90,9 @@ def get_bigcommerce_inventory(next_page='', creds=credentials):
 		temp.append(d['name'])
 		temp.append(d['inventory_level'])
 		b.append(temp)
-
-	# pprint.pprint(data)
-
 	if data['meta']['pagination']['current_page'] != data['meta']['pagination']['total_pages']:
 		next_page = data['meta']['pagination']['current_page'] + 1
 		get_bigcommerce_inventory(next_page=next_page)
-
 	return b
 
 
@@ -129,14 +116,6 @@ square_qty_not_nan = df_square_combine['squareQuantity'].count()
 log['sqQtyNotNan'] = square_qty_not_nan
 log['sqTrackingQtyTrue'] = square_tracking_qty[True]
 logging.info('%s', log)
-
-# if log['sqNanCount'] == log['sqTrackingFalseCount']:
-# 	logging.info('The number of items with Square inventory tracking turned off is: %s.', log['sqNanCount'])
-# else:
-# 	logging.info('There is a discrepenacy in the number of inventory items being tracked in Square. Square Nan Quantity = %s. Square Tracking Quantity = %s.', log['sqNanCount'], log['sqTrackingFalseCount'])
-
-# logging.info('The total number of items in Square Tracking is: %s.', log['squareTrackingTotalCount'])
-
 
 # bigcommerce_inventory = get_bigcommerce_inventory()
 # df3 = pandas.DataFrame(bigcommerce_inventory, columns=['name', 'bigCommerceQuantity'])
