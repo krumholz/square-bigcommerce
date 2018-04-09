@@ -1,3 +1,10 @@
+config/site.php
+files/cache/*
+files/tmp/*
+.htaccess
+.DS_Store
+*/.DS_Store
+
 credentials.py
 email_test.py
 trySome.py
