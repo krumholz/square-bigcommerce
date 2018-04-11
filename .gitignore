@@ -4,6 +4,7 @@ files/tmp/*
 .htaccess
 .DS_Store
 */.DS_Store
+*.pyc
 
 credentials.py
 email_test.py

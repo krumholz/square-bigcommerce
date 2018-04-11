@@ -81,7 +81,8 @@ def get_bigcommerce_inventory(next_page='', creds=credentials):
 		paginate = 1
 	else:
 		paginate = next_page
-	url = 'https://api.bigcommerce.com/stores/' + credentials.bigcommerce['store'] + '/v3/catalog/products?include_fields=name,inventory_level&page=' + str(paginate) + '&limit=250'
+	# url = 'https://api.bigcommerce.com/stores/' + credentials.bigcommerce['store'] + '/v3/catalog/products?include_fields=name,inventory_level&page=' + str(paginate) + '&limit=250'
+	url = 'https://api.bigcommerce.com/stores/' + credentials.bigcommerce['store'] + '/v3/catalog/products?page=' + str(paginate) + '&limit=250'
 
 	r = requests.get(url, headers=headers)
 	data = r.json()
@@ -89,6 +90,10 @@ def get_bigcommerce_inventory(next_page='', creds=credentials):
 		temp = []
 		temp.append(d['name'])
 		temp.append(d['inventory_level'])
+		if d['inventory_tracking'] == 'none':
+			temp.append(False)
+		else:
+			temp.append(d['inventory_tracking'])
 		b.append(temp)
 	if data['meta']['pagination']['current_page'] != data['meta']['pagination']['total_pages']:
 		next_page = data['meta']['pagination']['current_page'] + 1
@@ -99,27 +104,51 @@ def get_bigcommerce_inventory(next_page='', creds=credentials):
 i = []
 q = []
 b = []
-
 square_items = get_square_items()
 df1 = pandas.DataFrame(square_items, columns=['iD', 'name', 'squareTracking'])
-# print(df1)
 square_quantity = get_square_quantity()
 df2 = pandas.DataFrame(square_quantity, columns=['iD', 'squareQuantity'])
-df_square_combine = pandas.merge(df1, df2, on='iD', how='outer')
+df_square_combined = pandas.merge(df1, df2, on='iD', how='outer')
+bigcommerce_inventory = get_bigcommerce_inventory()
+df3 = pandas.DataFrame(bigcommerce_inventory, columns=['name', 'bigCommerceQuantity', 'bigCommerceTracking'])
+
+df_square_bigcommerce = pandas.merge(df_square_combined, df3, on='name', how='outer')
+squareUniques = df_square_combined[(~df_square_combined['name'].isin(df3['name']))]
+bcUniques = df3[(~df3['name'].isin(df_square_combined['name']))]
+dfWithoutNameMismatches = df_square_bigcommerce[(~df_square_bigcommerce['name'].isin(squareUniques['name']))]
+dfWithoutNameMismatches = dfWithoutNameMismatches[(~dfWithoutNameMismatches['name'].isin(bcUniques['name']))]
+dfWithoutNameMismatches['trackingOn'] = numpy.where(dfWithoutNameMismatches['squareTracking'] != dfWithoutNameMismatches['bigCommerceTracking'], True, False)
+dfTrackingOn = dfWithoutNameMismatches[dfWithoutNameMismatches['trackingOn'] == True]
+sqTrackingFalse = dfTrackingOn[dfTrackingOn['squareTracking'] == False]
+bcTrackingFalse = dfTrackingOn[dfTrackingOn['bigCommerceTracking'] == False]
+dfWithoutTrackingMismatches = dfTrackingOn[dfTrackingOn['squareQuantity'] != dfTrackingOn['bigCommerceQuantity']]
 
 log = {}
-square_qty_nan = df_square_combine['squareQuantity'].isna().sum()
+square_qty_nan = df_square_combined['squareQuantity'].isna().sum()
 log['sqQtyNan'] = square_qty_nan
-square_tracking_qty = df_square_combine['squareTracking'].value_counts()
+square_tracking_qty = df_square_combined['squareTracking'].value_counts()
 log['sqTrackingQtyFalse'] = square_tracking_qty[False]
-square_qty_not_nan = df_square_combine['squareQuantity'].count()
+bcTracking = df3['bigCommerceTracking'].value_counts()
+log['bcTrackingQtyFalse'] = bcTracking[False]
+square_qty_not_nan = df_square_combined['squareQuantity'].count()
 log['sqQtyNotNan'] = square_qty_not_nan
 log['sqTrackingQtyTrue'] = square_tracking_qty[True]
+log['bcTrackingQtyProduct'] = bcTracking['product']
 logging.info('%s', log)
 
-# bigcommerce_inventory = get_bigcommerce_inventory()
-# df3 = pandas.DataFrame(bigcommerce_inventory, columns=['name', 'bigCommerceQuantity'])
-# df_square_bigcommerce = pandas.merge(df_square_combine, df3, on='name', how='outer')
+message = 'In Square but not in BigCommerce: ' + str(squareUniques.shape[0]) + ' items\n'
+message = message + '\n'.join(squareUniques['name'])
+message = message + '\n\nIn BigCommerce but not in Square: ' + str(bcUniques.shape[0]) + ' items\n'
+message = message + '\n'.join(bcUniques['name'])
+message = message + '\n\nInventory tracking that does not match in Square or BigCommerce: ' + str(sqTrackingFalse.shape[0] + bcTrackingFalse.shape[0]) + ' items\n'
+message = message + '\n'.join(sqTrackingFalse['name']) + '\n' + '\n'.join(bcTrackingFalse['name'])
+message = message + '\n\nInventory quantities that do not match: ' + str(dfWithoutTrackingMismatches.shape[0]) + ' items\n'
+messageLoop = ''
+for index, row in dfWithoutTrackingMismatches.iterrows():
+	messageLoop = messageLoop + row['name'] + ' ' + str(row['squareQuantity']) + ' ' + str(row['bigCommerceQuantity']) + '\n'
+message = message + messageLoop
+logging.info('%s', message)
+
 # np_diff = numpy.where(df_square_bigcommerce['squareQuantity'] != df_square_bigcommerce['bigCommerceQuantity'], df_square_bigcommerce['name'], '')
 # df_diff = pandas.DataFrame(np_diff, columns=['name'])
 # df_merged = pandas.merge(df_diff, df_square_bigcommerce, on='name', how='inner')
