@@ -9,3 +9,4 @@ files/tmp/*
 credentials.py
 email_test.py
 trySome.py
+errorLog.txt
