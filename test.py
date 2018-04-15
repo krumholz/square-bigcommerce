@@ -157,7 +157,7 @@ for index, row in squareUniques.iterrows():
 message = message + '<tr><td>&nbsp;</td></tr><tr><td><h3>In BigCommerce but not in Square: ' + str(bcUniques.shape[0]) + ' Items</h3></td></tr>'
 for index, row in bcUniques.iterrows():
     message = message + '<tr><td>' + row['name'] + '</td></tr>'
-message = message + '<tr><td>&nbsp;</td></tr><tr><td><h3>Inventory Tracking settings that do not Match: ' + str(sqTrackingFalse.shape[0] + bcTrackingFalse.shape[0]) + ' Items</h3></td></tr>'
+message = message + '<tr><td>&nbsp;</td></tr><tr><td><h3>Inventory tracking settings that do not match: ' + str(sqTrackingFalse.shape[0] + bcTrackingFalse.shape[0]) + ' Items</h3></td></tr>'
 for index, row in sqTrackingFalse.iterrows():
     message = message + '<tr><td>' + row['name'] + '</td></tr>'
 for index, row in bcTrackingFalse.iterrows():
